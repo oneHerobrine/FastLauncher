@@ -46,6 +46,8 @@ public class Main {
 
         MinecraftDirectory dir = new MinecraftDirectory(data.getDataFolder());
         Launcher launcher = LauncherBuilder.buildDefault();
+
+
         AuthData authData = data.getAuthData().orElse(null);
         if(authData == null) {
             CompletableFuture<AuthData> future = new CompletableFuture<>();
@@ -76,7 +78,6 @@ public class Main {
                 () -> finalAuthInfo,
                 dir
         );
-
 
         if(meta.get("java-relative-path") == null || meta.get("java-relative-path").getAsString().isEmpty() || meta.get("java-relative-path").getAsString().equals("%this%"))
             option.setJavaEnvironment(JavaEnvironment.current());
