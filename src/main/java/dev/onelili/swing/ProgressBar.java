@@ -30,6 +30,7 @@ public class ProgressBar {
         progressBar.setValue(0);
         progressBar.setStringPainted(true);
         progressBar.setForeground(new Color(0, 122, 204));
+        progressBar.setSize(300, 5);
 
         statusLabel = new JLabel("下载文件中...", JLabel.CENTER);
 

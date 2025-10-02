@@ -1,5 +1,6 @@
 package dev.onelili;
 
+import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -34,6 +35,8 @@ public class Main {
 
     @SneakyThrows
     public static void main(String[] args) {
+        FlatMacLightLaf.setup();
+
         File dataFolder = DataManager.findDataFolder();
         if(dataFolder == null) {
             CompletableFuture<File> future = new CompletableFuture<>();
