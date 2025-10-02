@@ -264,7 +264,7 @@ public class MinecraftInstaller {
                     runningTasks.add(downloadMinecraftVersion(step.getString("version")));
                     break;
                 }
-                case "installMod": {
+                case "installPackage": {
                     runningTasks.add(downloadModificationFiles(step.getSection("modifications")));
                     break;
                 }
@@ -322,6 +322,27 @@ public class MinecraftInstaller {
                     MapTree content = MapTree.fromJson(fetchRemoteContent(url));
                     System.out.println("Installing module: "+content.getString("name"));
                     runInstallationScript((List<Map<String, Object>>) content.get("installation"));
+                    break;
+                }
+                case "move": {
+                    String from = step.getString("from");
+                    String to = step.getString("to");
+                    if(from.startsWith("/")||from.contains("..")||to.startsWith("/")||to.contains("..")){
+                        System.out.println("\033[31mError: Found potentially dangerous path: "+from+"!\033[0m");
+                        throw new SecurityException("Found potentially dangerous path: "+from+"!");
+                    }
+                    File fFrom = new File(directory+"/"+versionManifest.getString("name")+"/"+from);
+                    File fTo = new File(directory+"/"+versionManifest.getString("name")+"/"+to);
+                    if(!fFrom.exists()||fFrom.isDirectory()){
+                        System.out.println("\033[31mError: File not found / is directory: "+from+"!\033[0m");
+                        throw new IllegalArgumentException("File not found: "+from+"!");
+                    }
+                    if(fTo.exists()){
+                        fTo.delete();
+                    }else if(!fTo.getParentFile().exists()){
+                        fTo.getParentFile().mkdirs();
+                    }
+                    fFrom.renameTo(fTo);
                     break;
                 }
                 case "await": {

@@ -14,8 +14,10 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 import net.lingala.zip4j.ZipFile;
 import org.to2mbn.jmccc.auth.AuthInfo;
+import org.to2mbn.jmccc.auth.OfflineAuthenticator;
 import org.to2mbn.jmccc.launch.Launcher;
 import org.to2mbn.jmccc.launch.LauncherBuilder;
+import org.to2mbn.jmccc.launch.ProcessListener;
 import org.to2mbn.jmccc.option.JavaEnvironment;
 import org.to2mbn.jmccc.option.LaunchOption;
 import org.to2mbn.jmccc.option.MinecraftDirectory;
@@ -60,6 +62,11 @@ public class Main {
         new MinecraftInstaller(meta.getSection("adapt"))
                 .install(data.getDataFolder().getAbsolutePath());
 
+        File injector = new File(data.getDataFolder(), "authlib-injector.jar");
+        try(InputStream in = Main.class.getClassLoader().getResourceAsStream("authlib-injector.jar")) {
+            Files.copy(Objects.requireNonNull(in), injector.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+
         MinecraftDirectory dir = new MinecraftDirectory(data.getDataFolder()+"/"+meta.getString("adapt.name"));
         Launcher launcher = LauncherBuilder.buildDefault();
 
@@ -90,12 +97,14 @@ public class Main {
 
         LaunchOption option = new LaunchOption(
                 meta.getString("version-name"),
-                () -> finalAuthInfo,
+                ()-> finalAuthInfo,
                 dir
         );
 
         if(meta.get("java-relative-path") == null || meta.getString("java-relative-path").isEmpty() || meta.getString("java-relative-path").equals("%this%"))
             option.setJavaEnvironment(JavaEnvironment.current());
+        else if(meta.getString("java-relative-path").startsWith("/"))
+            option.setJavaEnvironment(new JavaEnvironment(new File(meta.getString("java-relative-path"))));
         else
             option.setJavaEnvironment(new JavaEnvironment(new File(data.getDataFolder(), meta.getString("java-relative-path"))));
         option.extraMinecraftArguments().add("--quickPlayMultiplayer");
@@ -109,14 +118,29 @@ public class Main {
         option.extraJvmArguments().add(String.format("-javaagent:%s=%s", new File(data.getDataFolder(), "authlib-injector.jar").getAbsolutePath(), meta.get("uni-auth-url") + "yggdrasil/"));
         option.extraJvmArguments().add("-Dauthlibinjector.side=client");
 
-        new Thread(() -> {
-            try {
-                Thread.sleep(3000);
-            } catch(InterruptedException ignored) {}
-            prompt.close();
-        }).start();
+//        new Thread(() -> {
+//            try {
+//                Thread.sleep(3000);
+//            } catch(InterruptedException ignored) {}
+//            prompt.close();
+//        }).start();
 
-        launcher.launch(option).waitFor();
+        launcher.launch(option, new ProcessListener() {
+            @Override
+            public void onLog(String s) {
+                System.out.println(s);
+            }
+
+            @Override
+            public void onErrorLog(String s) {
+                System.out.println("\033[31m"+s+"\033[0m");
+            }
+
+            @Override
+            public void onExit(int i) {
+                prompt.close();
+            }
+        }).waitFor();
     }
 
 //    @SneakyThrows
