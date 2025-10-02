@@ -92,6 +92,10 @@ public class MinecraftInstaller {
     }
 
     private CompleteChecker downloadFile(@NonNull URL url, @NonNull File toFile) {
+        if (!toFile.getParentFile().exists()) {
+            toFile.getParentFile().mkdirs();
+        }
+        totalFiles.incrementAndGet();
         Future<?> future = threadPool.submit(() -> {
             try {
                 HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
@@ -109,6 +113,7 @@ public class MinecraftInstaller {
                         while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
                             fileOutputStream.write(dataBuffer, 0, bytesRead);
                         }
+                        downloadedFiles.incrementAndGet();
                     }
                 }
             } catch(Exception e) {
@@ -210,13 +215,13 @@ public class MinecraftInstaller {
                 throw new SecurityException("Found potentially dangerous path: "+path+"!");
             }
             System.out.println("Installing "+path);
-            if(modifications.getString(path).startsWith("pack://")){
+            if(modifications.data.get(path).toString().startsWith("pack://")){
                 throw new UnsupportedOperationException("Cannot load pack:// resources in non-modpack context!");
             }
             try {
-                tasks.add(downloadFile(new URL(modifications.getString(path)), file));
+                tasks.add(downloadFile(new URL(modifications.data.get(path).toString()), file));
             } catch (MalformedURLException e) {
-                System.out.println("\033[31mError: Malformed URL: "+modifications.getString(path)+"!\033[0m");
+                throw new IllegalArgumentException("Malformed URL: "+modifications.data.get(path).toString());
             }
         }
         return () -> tasks.stream().allMatch(CompleteChecker::isComplete);
@@ -283,7 +288,8 @@ public class MinecraftInstaller {
                     break;
                 }
                 case "unzip": {
-                    runningTasks.add(threadPool.submit(() -> {
+                    CompletableFuture<Void> future = new CompletableFuture<>();
+                    threadPool.submit(() -> {
                         String file = step.getString("file");
                         String to = step.getString("to");
                         if (file.startsWith("/") || file.contains("..")) {
@@ -292,10 +298,12 @@ public class MinecraftInstaller {
                         }
                         try (ZipFile zipFile = new ZipFile(new File(directory + "/" + versionManifest.getString("name") + "/" + file))) {
                             zipFile.extractAll(directory + "/" + versionManifest.getString("name") + "/" + to);
+                            future.complete(null);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
-                    })::isDone);
+                    });
+                    runningTasks.add(future::isDone);
                     break;
                 }
                 case "edit": {
@@ -307,6 +315,13 @@ public class MinecraftInstaller {
                     }catch (Exception e){
                         e.printStackTrace();
                     }
+                    break;
+                }
+                case "include": {
+                    String url = step.getString("url");
+                    MapTree content = MapTree.fromJson(fetchRemoteContent(url));
+                    System.out.println("Installing module: "+content.getString("name"));
+                    runInstallationScript((List<Map<String, Object>>) content.get("installation"));
                     break;
                 }
                 case "await": {
@@ -383,8 +398,19 @@ public class MinecraftInstaller {
             }
         }
 
-        if(versionManifest.contains("installation"))
-            runInstallationScript((List<Map<String, Object>>) versionManifest.get("installation"));
+        try {
+            if (versionManifest.contains("installation"))
+                runInstallationScript((List<Map<String, Object>>) versionManifest.get("installation"));
+        }catch (Exception e){
+            e.printStackTrace();
+            System.out.println("\033[31mError: Failed to install version!\033[0m");
+            frame.dispose();
+            downloader.shutdown();
+            threadPool.shutdown();
+            JOptionPane.showMessageDialog(frame, e.getMessage(), "安装失败", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+            return;
+        }
 
         while (!runningTasks.stream().allMatch(CompleteChecker::isComplete)) {
             try {

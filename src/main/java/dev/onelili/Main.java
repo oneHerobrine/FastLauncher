@@ -1,5 +1,6 @@
 package dev.onelili;
 
+import cn.jason31416.adaptInstaller.MinecraftInstaller;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -29,7 +30,7 @@ import java.util.concurrent.CompletableFuture;
 
 public class Main {
     @Getter
-    private static final JsonObject meta = JsonParser.parseReader(new InputStreamReader(Objects.requireNonNull(Main.class.getClassLoader().getResourceAsStream("meta.json")))).getAsJsonObject();
+    private static MapTree meta;
     @Getter
     private static DataManager data;
 
@@ -37,19 +38,30 @@ public class Main {
     public static void main(String[] args) {
         FlatMacLightLaf.setup();
 
+        StringBuilder sb = new StringBuilder();
+        try(InputStream in = Main.class.getClassLoader().getResourceAsStream("meta.json")){
+            byte[] buffer = new byte[1024];
+            int len;
+            while((len = in.read(buffer)) > 0)
+                sb.append(new String(buffer, 0, len));
+        }
+        meta = MapTree.fromJson(sb.toString());
+
         File dataFolder = DataManager.findDataFolder();
         if(dataFolder == null) {
             CompletableFuture<File> future = new CompletableFuture<>();
             new DirectoryChooser(future::complete);
             File dataDir = future.get();
             data = new DataManager(dataDir);
-            firstInitialize();
+//            firstInitialize();
         } else
             data = new DataManager(dataFolder);
 
-        MinecraftDirectory dir = new MinecraftDirectory(data.getDataFolder());
-        Launcher launcher = LauncherBuilder.buildDefault();
+        new MinecraftInstaller(meta.getSection("adapt"))
+                .install(data.getDataFolder().getAbsolutePath());
 
+        MinecraftDirectory dir = new MinecraftDirectory(data.getDataFolder()+"/"+meta.getString("adapt.name"));
+        Launcher launcher = LauncherBuilder.buildDefault();
 
         AuthData authData = data.getAuthData().orElse(null);
         if(authData == null) {
@@ -77,17 +89,17 @@ public class Main {
         );
 
         LaunchOption option = new LaunchOption(
-                meta.get("version-name").getAsString(),
+                meta.getString("version-name"),
                 () -> finalAuthInfo,
                 dir
         );
 
-        if(meta.get("java-relative-path") == null || meta.get("java-relative-path").getAsString().isEmpty() || meta.get("java-relative-path").getAsString().equals("%this%"))
+        if(meta.get("java-relative-path") == null || meta.getString("java-relative-path").isEmpty() || meta.getString("java-relative-path").equals("%this%"))
             option.setJavaEnvironment(JavaEnvironment.current());
         else
-            option.setJavaEnvironment(new JavaEnvironment(new File(data.getDataFolder(), meta.get("java-relative-path").getAsString())));
+            option.setJavaEnvironment(new JavaEnvironment(new File(data.getDataFolder(), meta.getString("java-relative-path"))));
         option.extraMinecraftArguments().add("--quickPlayMultiplayer");
-        option.extraMinecraftArguments().add(meta.get("minecraft-server").getAsString());
+        option.extraMinecraftArguments().add(meta.getString("minecraft-server"));
 
         JsonObject authMeta = new JsonObject();
         authMeta.addProperty("timestamp", System.currentTimeMillis());
@@ -107,36 +119,36 @@ public class Main {
         launcher.launch(option).waitFor();
     }
 
-    @SneakyThrows
-    private static void firstInitialize() {
-        Set<CompletableFuture<@NonNull Boolean>> allFutures = new HashSet<>();
-        List<@NonNull String> files = new ArrayList<>();
-
-        for(JsonElement element : meta.get("packets").getAsJsonArray()) {
-            URL url = new URL(element.getAsString());
-            allFutures.add(data.downloadFile(url, element.getAsString().substring(element.getAsString().lastIndexOf('/') + 1)));
-            files.add(element.getAsString().substring(element.getAsString().lastIndexOf('/') + 1));
-        }
-
-        ProgressBar bar = new ProgressBar(meta.get("packets-total-size").getAsLong());
-        while(!allFutures.stream().allMatch(CompletableFuture::isDone))
-            bar.update((long) (data.getDownloadProgress() * meta.get("packets-total-size").getAsLong()));
-
-        bar.setStatus("正在解压缩...");
-
-        try(ZipFile zipFile = new ZipFile(new File(data.getDataFolder(), files.get(0)))) {
-            zipFile.extractAll(data.getDataFolder().getAbsolutePath());
-            for(String file : files)
-                new File(data.getDataFolder(), file).delete();
-        }
-
-        bar.setStatus("正在加载authlib-injector...");
-
-        File injector = new File(data.getDataFolder(), "authlib-injector.jar");
-        try(InputStream in = Main.class.getClassLoader().getResourceAsStream("authlib-injector.jar")) {
-            Files.copy(Objects.requireNonNull(in), injector.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        }
-
-        bar.close();
-    }
+//    @SneakyThrows
+//    private static void firstInitialize() {
+//        Set<CompletableFuture<@NonNull Boolean>> allFutures = new HashSet<>();
+//        List<@NonNull String> files = new ArrayList<>();
+//
+//        for(JsonElement element : meta.get("packets")) {
+//            URL url = new URL(element.getAsString());
+//            allFutures.add(data.downloadFile(url, element.getAsString().substring(element.getAsString().lastIndexOf('/') + 1)));
+//            files.add(element.getAsString().substring(element.getAsString().lastIndexOf('/') + 1));
+//        }
+//
+//        ProgressBar bar = new ProgressBar(meta.get("packets-total-size").getAsLong());
+//        while(!allFutures.stream().allMatch(CompletableFuture::isDone))
+//            bar.update((long) (data.getDownloadProgress() * meta.get("packets-total-size").getAsLong()));
+//
+//        bar.setStatus("正在解压缩...");
+//
+//        try(ZipFile zipFile = new ZipFile(new File(data.getDataFolder(), files.get(0)))) {
+//            zipFile.extractAll(data.getDataFolder().getAbsolutePath());
+//            for(String file : files)
+//                new File(data.getDataFolder(), file).delete();
+//        }
+//
+//        bar.setStatus("正在加载authlib-injector...");
+//
+//        File injector = new File(data.getDataFolder(), "authlib-injector.jar");
+//        try(InputStream in = Main.class.getClassLoader().getResourceAsStream("authlib-injector.jar")) {
+//            Files.copy(Objects.requireNonNull(in), injector.toPath(), StandardCopyOption.REPLACE_EXISTING);
+//        }
+//
+//        bar.close();
+//    }
 }

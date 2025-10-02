@@ -26,10 +26,10 @@ public class AccountUtils {
         @SuppressWarnings("deprecation")
         RequestBody body = RequestBody.create(
                 MediaType.parse("application/json"),
-                "{\"server\": \"" + Main.getMeta().get("server-id").getAsString() + "\"}"
+                "{\"server\": \"" + Main.getMeta().getString("server-id") + "\"}"
         );
         Request request = new Request.Builder()
-                .url(Main.getMeta().get("uni-auth-url").getAsString() + "fastregister/generateaccount")
+                .url(Main.getMeta().getString("uni-auth-url") + "fastregister/generateaccount")
                 .post(body)
                 .build();
         JsonObject json;
@@ -53,7 +53,7 @@ public class AccountUtils {
     public static AuthData register(@NonNull String username, @NonNull String password) {
         OkHttpClient client = new OkHttpClient();
         JsonObject req = new JsonObject();
-        req.addProperty("server", Main.getMeta().get("server-id").getAsString());
+        req.addProperty("server", Main.getMeta().getString("server-id"));
         req.addProperty("username", username);
         req.addProperty("password", password);
         @SuppressWarnings("deprecation")
@@ -62,7 +62,7 @@ public class AccountUtils {
                 new Gson().toJson(req)
         );
         Request request = new Request.Builder()
-                .url(Main.getMeta().get("uni-auth-url").getAsString() + "fastregister/registeraccount")
+                .url(Main.getMeta().getString("uni-auth-url") + "fastregister/registeraccount")
                 .post(body)
                 .build();
         JsonObject json;
@@ -94,7 +94,7 @@ public class AccountUtils {
                 new Gson().toJson(req)
         );
         Request request = new Request.Builder()
-                .url(Main.getMeta().get("uni-auth-url").getAsString() + "fastregister/loginwithuniauth")
+                .url(Main.getMeta().getString("uni-auth-url") + "fastregister/loginwithuniauth")
                 .post(body)
                 .build();
         JsonObject json;
@@ -109,7 +109,7 @@ public class AccountUtils {
 
     @SneakyThrows
     public static @NonNull AuthResponse login(@NonNull AuthData authData) {
-        Authenticator authenticator = new Authenticator(Main.getMeta().get("uni-auth-url").getAsString() + "yggdrasil/authserver/", AuthPoints.NORMAL_AUTH_POINTS);
+        Authenticator authenticator = new Authenticator(Main.getMeta().getString("uni-auth-url") + "yggdrasil/authserver/", AuthPoints.NORMAL_AUTH_POINTS);
         AuthAgent agent = new AuthAgent("UniAuthReloaded", 1);
         return authenticator.authenticate(agent, authData.getUsername(), authData.getPassword(), "88888888-8888-8888-8888-888888888888");
     }

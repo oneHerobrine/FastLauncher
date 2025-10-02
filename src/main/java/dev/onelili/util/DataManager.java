@@ -25,7 +25,7 @@ public class DataManager {
     private final File dataFolder;
     @Getter
     private final boolean isFirstLaunch;
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(Main.getMeta().get("max-download-thread").getAsInt());
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(Main.getMeta().getInt("max-download-thread"));
 
     private final AtomicLong totalSize = new AtomicLong(0);
     private final AtomicLong downloadedSize = new AtomicLong(0);
@@ -73,7 +73,7 @@ public class DataManager {
     }
 
     public double getDownloadProgress() {
-        long total = Main.getMeta().get("packets-total-size").getAsLong();
+        long total = Main.getMeta().getInt("packets-total-size");
 
         return (double)(downloadedSize.get()) / (total > 0 ? total : totalSize.get());
     }
@@ -107,5 +107,10 @@ public class DataManager {
                 file3info.delete();
         }
         return null;
+    }
+
+    @SneakyThrows
+    public static void main(String[] args) {
+        System.out.println(findDataFolder());
     }
 }
